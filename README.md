@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🎯 AI-Powered Personalized Career Guidance Platform
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -168,3 +169,10 @@ graph TB
 12. **API & Developer Ecosystem** - Public API, Zapier connectors, Chrome extension, embeddable widgets
 
 ---
+=======
+# Firebase Studio
+
+This is a NextJS starter in Firebase Studio.
+
+To get started, take a look at src/app/page.tsx.
+>>>>>>> dd6cf03 (Initialized workspace with Firebase Studio)
