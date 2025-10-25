@@ -16,20 +16,9 @@ const IntelligentPersonaProfilingInputSchema = z.object({
 });
 export type IntelligentPersonaProfilingInput = z.infer<typeof IntelligentPersonaProfilingInputSchema>;
 
-const UserProfileSchema = z.object({
-    age: z.number().describe('The age of the user.'),
-    location: z.string().describe('The location of the user.'),
-    interests: z.array(z.string()).describe('The interests of the user.'),
-    goals: z.string().describe('The career goals of the user.'),
-    academicStanding: z.string().describe('The current academic standing of the user.'),
-    learningStyle: z.string().describe('The learning style of the user.'),
-    timeAvailability: z.string().describe('The time availability of the user.'),
-  }).describe('The user profile.');
-
-
 const IntelligentPersonaProfilingOutputSchema = z.object({
   nextQuestion: z.string().describe('The next question to ask the user.'),
-  profile: UserProfileSchema.optional().describe('The user profile.'),
+  profile: z.record(z.string(), z.any()).optional().describe('The user profile.'),
   isProfileComplete: z.boolean().describe('Whether the profile is complete.'),
 });
 export type IntelligentPersonaProfilingOutput = z.infer<typeof IntelligentPersonaProfilingOutputSchema>;
