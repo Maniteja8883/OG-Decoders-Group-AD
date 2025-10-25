@@ -1,7 +1,7 @@
 import { Header } from "@/app/components/Header";
 import { Suspense } from "react";
-import { generateCareerRoadmap, type GenerateCareerRoadmapOutput } from "@/ai/flows/generate-career-roadmap";
-import { recommendResources, type RecommendResourcesOutput } from "@/ai/flows/modern-resource-recommender";
+import { generateCareerRoadmap } from "@/ai/flows/generate-career-roadmap";
+import { recommendResources } from "@/ai/flows/modern-resource-recommender";
 import CareerMindMap from "./components/CareerMindMap";
 import ResourceRecommender from "./components/ResourceRecommender";
 import ContextualChat from "./components/ContextualChat";
@@ -26,7 +26,7 @@ type Profile = {
 // This component fetches and displays the AI-generated data
 async function RoadmapContent({ profile }: { profile: Profile }) {
     // Call both AI flows in parallel
-    const [mindMapData, resourcesData] = await Promise.all([
+    const [mindMapDataResult, resourcesDataResult] = await Promise.allSettled([
         generateCareerRoadmap(profile),
         recommendResources({
             profile: profile,
@@ -34,13 +34,38 @@ async function RoadmapContent({ profile }: { profile: Profile }) {
         })
     ]);
 
+    if (mindMapDataResult.status === 'rejected') {
+        console.error("Failed to generate mind map:", mindMapDataResult.reason);
+        return (
+             <div className="container mx-auto">
+                <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Error Generating Mind Map</AlertTitle>
+                    <AlertDescription>
+                       There was a critical error generating your career roadmap. Please try again.
+                       <pre className="mt-2 whitespace-pre-wrap text-xs">{mindMapDataResult.reason?.message}</pre>
+                    </AlertDescription>
+                </Alert>
+            </div>
+        )
+    }
+
+    if (resourcesDataResult.status === 'rejected') {
+        console.error("Failed to recommend resources:", resourcesDataResult.reason);
+        // We can still render the mind map even if resources fail
+    }
+
+    const mindMapData = mindMapDataResult.value;
+    const resourcesData = resourcesDataResult.status === 'fulfilled' ? resourcesDataResult.value : [];
+
+
     return (
-      <div className="container mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="container mx-auto grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
+        <div className="xl:col-span-2 space-y-6">
             <CareerMindMap mindMapData={mindMapData.mindMap} />
-            <ResourceRecommender resources={resourcesData} />
+             {resourcesData.length > 0 && <ResourceRecommender resources={resourcesData} />}
         </div>
-        <div className="lg:col-span-1">
+        <div className="xl:col-span-1">
             <ContextualChat profile={profile} />
         </div>
       </div>
@@ -49,12 +74,12 @@ async function RoadmapContent({ profile }: { profile: Profile }) {
 
 function RoadmapSkeleton() {
     return (
-        <div className="container mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-            <div className="lg:col-span-2 space-y-6">
+        <div className="container mx-auto grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
+            <div className="xl:col-span-2 space-y-6">
                 <Skeleton className="h-[600px] w-full rounded-lg" />
                 <Skeleton className="h-[400px] w-full rounded-lg" />
             </div>
-            <div className="lg:col-span-1">
+            <div className="xl:col-span-1">
                 <Skeleton className="h-[600px] w-full rounded-lg" />
             </div>
         </div>
@@ -86,7 +111,7 @@ export default function RoadmapPage({ searchParams }: RoadmapPageProps) {
     profile = {
         age: parsedProfile.age || 18,
         location: parsedProfile.location,
-        interests: parsedProfile.interests,
+        interests: Array.isArray(parsedProfile.interests) ? parsedProfile.interests : [String(parsedProfile.interests)],
         goals: parsedProfile.goals,
         current_grade: parsedProfile.current_grade || parsedProfile.academicStanding || 'Not specified',
         learning_style: parsedProfile.learning_style || parsedProfile.learningStyle || 'Not specified',
