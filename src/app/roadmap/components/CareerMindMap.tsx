@@ -40,8 +40,8 @@ type CustomNodeData = {
 };
 
 const nodeColors: { [key: string]: string } = {
-    root: '#4F46E5', // Indigo
-    foundation: '#10B981', // Green
+    root: '#673AB7', // primary
+    foundation: '#009688', // accent
     skills: '#F59E0B', // Amber
     specialization: '#EC4899', // Pink
     traditional: '#3B82F6', // Blue
@@ -51,7 +51,9 @@ const nodeColors: { [key: string]: string } = {
 };
 
 const CustomNode = ({ data, id }: Node<CustomNodeData>) => {
-    const handleToggle = () => {
+    const handleToggle = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
         data.onToggle(id);
     };
 
@@ -72,9 +74,13 @@ const CustomNode = ({ data, id }: Node<CustomNodeData>) => {
             )}
         </div>
     );
-
+    
     if (data.url) {
-        return <Link href={data.url} target="_blank" rel="noopener noreferrer">{content}</Link>
+      return (
+        <Link href={data.url} target="_blank" rel="noopener noreferrer" className="node-link">
+          {content}
+        </Link>
+      );
     }
 
     return content;
@@ -118,8 +124,8 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => 
   return { nodes, edges };
 };
 
-const transformData = (data: MindMapData, onToggle: (id: string) => void): { initialNodes: Node<CustomNodeData>[], initialEdges: Edge[] } => {
-    const initialNodes: Node<CustomNodeData>[] = [];
+const transformData = (data: MindMapData): { initialNodes: Node[], initialEdges: Edge[] } => {
+    const initialNodes: Node[] = [];
     const initialEdges: Edge[] = [];
     let nodeIdCounter = 0;
 
@@ -133,7 +139,6 @@ const transformData = (data: MindMapData, onToggle: (id: string) => void): { ini
             description: data.description,
             color: nodeColors.root,
             hasChildren: !!data.stages && data.stages.length > 0,
-            onToggle,
             isExpanded: true,
             category: 'root',
         },
@@ -152,7 +157,6 @@ const transformData = (data: MindMapData, onToggle: (id: string) => void): { ini
                 description: stage.description,
                 color: stageColor,
                 hasChildren: !!stage.items && stage.items.length > 0,
-                onToggle,
                 isExpanded: false,
                 category: stage.type,
             },
@@ -179,7 +183,6 @@ const transformData = (data: MindMapData, onToggle: (id: string) => void): { ini
                     description: item.description,
                     color: stageColor,
                     hasChildren: !!item.resources && item.resources.length > 0,
-                    onToggle,
                     isExpanded: false,
                     category: `${stage.type}-item`,
                 },
@@ -205,7 +208,6 @@ const transformData = (data: MindMapData, onToggle: (id: string) => void): { ini
                         description: resource.description,
                         color: resourceColor,
                         hasChildren: false,
-                        onToggle,
                         isExpanded: false,
                         category: resource.category,
                         url: resource.url
@@ -232,24 +234,21 @@ export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapDat
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
 
-    const { initialNodes, initialEdges } = useMemo(() => {
-        const handleToggle = (nodeId: string) => {
-            setExpandedNodeIds(prev => {
-                const newSet = new Set(prev);
-                if (newSet.has(nodeId)) {
-                    newSet.delete(nodeId);
-                } else {
-                    newSet.add(nodeId);
-                }
-                return newSet;
-            });
-        };
-        return transformData(mindMapData, handleToggle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mindMapData]);
+    const { initialNodes, initialEdges } = useMemo(() => transformData(mindMapData), [mindMapData]);
+
+    const handleToggleNode = useCallback((nodeId: string) => {
+        setExpandedNodeIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(nodeId)) {
+                newSet.delete(nodeId);
+            } else {
+                newSet.add(nodeId);
+            }
+            return newSet;
+        });
+    }, []);
 
     useEffect(() => {
-        // Set initial expansion state (root node)
         const rootNode = initialNodes.find(n => n.data.category === 'root');
         if (rootNode) {
             setExpandedNodeIds(new Set([rootNode.id]));
@@ -257,48 +256,52 @@ export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapDat
     }, [initialNodes]);
 
     useEffect(() => {
-        const getVisibleNodes = () => {
-            const visibleNodeIds = new Set<string>();
-            const root = initialNodes.find(n => n.data.category === 'root');
-            if (!root) return [];
-            
-            const queue: string[] = [root.id];
-            visibleNodeIds.add(root.id);
+        const getVisibleNodesAndEdges = () => {
+            const visibleNodes = new Set<string>();
+            const queue: string[] = [];
 
-            while(queue.length > 0) {
+            const root = initialNodes.find(n => n.data.category === 'root');
+            if (root) {
+                queue.push(root.id);
+                visibleNodes.add(root.id);
+            }
+            
+            while (queue.length > 0) {
                 const currentId = queue.shift()!;
                 if (expandedNodeIds.has(currentId)) {
                     const children = initialEdges.filter(e => e.source === currentId).map(e => e.target);
                     children.forEach(childId => {
-                        visibleNodeIds.add(childId);
-                        queue.push(childId);
+                        if (!visibleNodes.has(childId)) {
+                            visibleNodes.add(childId);
+                            queue.push(childId);
+                        }
                     });
                 }
             }
-            return initialNodes.filter(n => visibleNodeIds.has(n.id));
+
+            const finalNodes = initialNodes
+                .filter(n => visibleNodes.has(n.id))
+                .map(n => ({
+                    ...n,
+                    data: {
+                        ...n.data,
+                        isExpanded: expandedNodeIds.has(n.id),
+                        onToggle: handleToggleNode,
+                    }
+                }));
+
+            const finalEdges = initialEdges.filter(e => visibleNodes.has(e.source) && visibleNodes.has(e.target));
+            
+            return { finalNodes, finalEdges };
         };
 
-        const visibleNodes = getVisibleNodes();
-        const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
+        const { finalNodes, finalEdges } = getVisibleNodesAndEdges();
+        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(finalNodes, finalEdges);
 
-        const visibleEdges = initialEdges.filter(edge =>
-            visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)
-        );
-
-        const updatedNodes = visibleNodes.map(node => ({
-            ...node,
-            data: {
-                ...node.data,
-                isExpanded: expandedNodeIds.has(node.id),
-            }
-        }));
-
-        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(updatedNodes, visibleEdges);
-        
         setNodes(layoutedNodes);
         setEdges(layoutedEdges);
 
-    }, [expandedNodeIds, initialNodes, initialEdges, setNodes, setEdges]);
+    }, [expandedNodeIds, initialNodes, initialEdges, setNodes, setEdges, handleToggleNode]);
     
     
     const onConnect = useCallback((params: any) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
@@ -320,7 +323,7 @@ export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapDat
             })
             .catch(err => {
               console.error(err);
-              toast({ title: "Error", description: "Could not export mind map.", variant: "destructive" });
+              toast({ title: "Error", description: "Could not export mind map. " + err.message, variant: "destructive" });
             });
         }
     }, [toast]);
@@ -372,3 +375,5 @@ export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapDat
         </Card>
     );
 }
+
+    

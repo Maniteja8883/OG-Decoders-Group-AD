@@ -1,3 +1,4 @@
+
 .career-node {
     background: hsl(var(--card));
     border-radius: 12px;
@@ -10,6 +11,11 @@
     position: relative;
     color: hsl(var(--card-foreground));
     overflow: hidden;
+}
+
+.node-link {
+    text-decoration: none;
+    color: inherit;
 }
 
 .react-flow__node.selected > .career-node, .career-node:hover {
@@ -89,3 +95,5 @@
 .react-flow__background {
     background-color: hsl(var(--background));
 }
+
+    
