@@ -1,6 +1,6 @@
 "use client";
 
-import { intelligentPersonaProfiling, type IntelligentPersonaProfilingOutput } from "@/ai/flows/intelligent-persona-profiling";
+import { intelligentPersonaProfiling } from "@/ai/flows/intelligent-persona-profiling";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,22 +21,23 @@ export function PersonaProfilingChat() {
   const router = useRouter();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
+  
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
   
   useEffect(scrollToBottom, [messages, isLoading]);
 
+  // Effect to get the first question
   useEffect(() => {
     async function startConversation() {
       setIsLoading(true);
       try {
-        const response = await intelligentPersonaProfiling({
-          previousResponses: [],
-        });
+        const response = await intelligentPersonaProfiling({ conversation: [] });
         if (response.nextQuestion) {
           setMessages([{ sender: "bot", text: response.nextQuestion }]);
+        } else {
+          throw new Error("Could not get the first question.");
         }
       } catch (error) {
         console.error("Error starting conversation:", error);
@@ -50,55 +51,43 @@ export function PersonaProfilingChat() {
       }
     }
     startConversation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!userInput.trim() || isLoading) return;
 
-    const newMessages: Message[] = [
-      ...messages,
-      { sender: "user", text: userInput },
-    ];
-    setMessages(newMessages);
+    const userMessage: Message = { sender: "user", text: userInput };
+    const currentMessages: Message[] = [...messages, userMessage];
+
+    setMessages(currentMessages);
     setUserInput("");
     setIsLoading(true);
 
     try {
-      const previousResponses = newMessages.map(
-        (msg) => `${msg.sender}: ${msg.text}`
-      );
-      
-      const response: IntelligentPersonaProfilingOutput = await intelligentPersonaProfiling({
-        previousResponses,
-        currentQuestion: newMessages.findLast(msg => msg.sender === 'bot')?.text
-      });
+      const response = await intelligentPersonaProfiling({ conversation: currentMessages });
 
-      if (response.isProfileComplete && response.profile) {
-        setMessages((prev) => [
-          ...prev,
-          { sender: "bot", text: "Great! We've completed your profile. Generating your career roadmap now..." },
-        ]);
+      if (response.profile) {
+        setMessages(prev => [...prev, { sender: "bot", text: "Great! We've completed your profile. Generating your career roadmap now..." }]);
         const profileString = JSON.stringify(response.profile);
         router.push(`/roadmap?profile=${encodeURIComponent(profileString)}`);
       } else if (response.nextQuestion) {
-        setMessages((prev) => [
-          ...prev,
-          { sender: "bot", text: response.nextQuestion },
-        ]);
+        setMessages(prev => [...prev, { sender: "bot", text: response.nextQuestion! }]);
+        setIsLoading(false);
       } else {
-        throw new Error("AI did not provide a next step.");
+        throw new Error("The AI did not provide a valid response.");
       }
+
     } catch (error) {
-      console.error("Error with persona profiling:", error);
-      toast({
-        title: "An Error Occurred",
-        description: "There was an issue with the AI assistant. Please try again.",
-        variant: "destructive",
-      });
-      setMessages((prev) => [...prev, {sender: "bot", text: "I'm sorry, I encountered an error. Could you please try rephrasing your last response?"}])
-    } finally {
-      setIsLoading(false);
+        console.error("Error with persona profiling:", error);
+        toast({
+          title: "An Error Occurred",
+          description: "There was an issue communicating with the AI. Please try again.",
+          variant: "destructive",
+        });
+        setMessages(prev => [...prev, {sender: "bot", text: "I'm sorry, I encountered an error. Could you please try rephrasing your last response?"}])
+        setIsLoading(false);
     }
   };
 
@@ -134,7 +123,7 @@ export function PersonaProfilingChat() {
               )}
             </div>
           ))}
-          {isLoading && messages.length > 0 && (
+          {isLoading && (
              <div className="flex items-start gap-3">
                 <div className="p-2 bg-primary rounded-full text-primary-foreground shrink-0">
                   <Bot className="w-5 h-5" />
