@@ -100,7 +100,7 @@ const nodeHeight = 150;
 const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
   if (nodes.length === 0) return { nodes, edges };
   const isHorizontal = direction === 'LR';
-  dagreGraph.setGraph({ rankdir: direction, nodesep: 150, ranksep: 200, marginx: 100, marginy: 100 });
+  dagreGraph.setGraph({ rankdir: direction, nodesep: 100, ranksep: 180, marginx: 50, marginy: 50 });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -133,7 +133,7 @@ export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapDat
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     
     const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => 
-        new Set(mindMapData.nodes.filter(n => n.id === 'root').map(n => n.id))
+        new Set(mindMapData.nodes.map(n => n.id))
     );
 
     const initialNodes = useMemo(() => {
@@ -184,7 +184,6 @@ export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapDat
                 queue.push(root.id);
                 visibleNodeIds.add(root.id);
             } else if (initialNodes.length > 0) {
-                // Fallback if no root found
                 const firstNode = initialNodes[0];
                  queue.push(firstNode.id);
                  visibleNodeIds.add(firstNode.id);
@@ -286,7 +285,7 @@ export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapDat
                 onConnect={onConnect}
                 nodeTypes={nodeTypes}
                 fitView
-                fitViewOptions={{ padding: 0.2, minZoom: 0.3, maxZoom: 1.5 }}
+                fitViewOptions={{ padding: 0.2, minZoom: 0.2, maxZoom: 1.5 }}
                 attributionPosition="bottom-left"
                 minZoom={0.1}
                 maxZoom={4}
