@@ -12,14 +12,14 @@ import ReactFlow, {
   MarkerType,
   Node,
   Edge,
-} from '@xyflow/react';
+} from 'reactflow';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Expand, Shrink } from "lucide-react";
 import { toPng } from 'html-to-image';
 import dagre from 'dagre';
 
-import '@xyflow/react/dist/style.css';
+import 'reactflow/dist/style.css';
 import './MindMap.css';
 import { useToast } from '@/hooks/use-toast';
 
