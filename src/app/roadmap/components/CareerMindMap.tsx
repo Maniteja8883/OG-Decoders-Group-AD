@@ -22,44 +22,62 @@ import dagre from 'dagre';
 import 'reactflow/dist/style.css';
 import './MindMap.css';
 import { useToast } from '@/hooks/use-toast';
+import { GenerateCareerRoadmapOutput } from '@/ai/flows/generate-career-roadmap';
+import Link from 'next/link';
 
-// AI-generated data structure
-type MindMapData = {
-  id: string;
-  label: string;
-  description?: string;
-  type?: string;
-  children?: MindMapData[];
-};
+
+type MindMapData = GenerateCareerRoadmapOutput['mindMap'];
 
 type CustomNodeData = {
-  label: string;
-  description?: string;
-  color: string;
-  hasChildren: boolean;
+    label: string;
+    description?: string;
+    color: string;
+    hasChildren: boolean;
+    onToggle: (id: string) => void;
+    isExpanded: boolean;
+    category: string;
+    url?: string;
 };
 
 const nodeColors: { [key: string]: string } = {
-    mainCareer: '#4F46E5', // Indigo
-    subDomain: '#10B981', // Green
+    root: '#4F46E5', // Indigo
+    foundation: '#10B981', // Green
     skills: '#F59E0B', // Amber
-    resources: '#EC4899', // Pink
-    default: '#6366F1', // Violet
+    specialization: '#EC4899', // Pink
+    traditional: '#3B82F6', // Blue
+    ai_first: '#8B5CF6', // Purple
+    timeline: '#6366F1', // Violet
+    default: '#6B7280', // Gray
 };
 
-const CustomNode = ({ data }: Node<CustomNodeData>) => {
-  return (
-    <div className="career-node">
-      <div className="node-header" style={{ backgroundColor: data.color }}>
-        <strong>{data.label}</strong>
-      </div>
-      {data.description && (
-        <div className="node-body">
-          <p>{data.description}</p>
+const CustomNode = ({ data, id }: Node<CustomNodeData>) => {
+    const handleToggle = () => {
+        data.onToggle(id);
+    };
+
+    const content = (
+        <div className={`career-node ${data.category}`}>
+            <div className="node-header" style={{ backgroundColor: data.color }}>
+                <strong>{data.label}</strong>
+            </div>
+            {data.description && (
+                <div className="node-body">
+                    <p>{data.description}</p>
+                </div>
+            )}
+            {data.hasChildren && (
+                <button className="expand-btn" onClick={handleToggle}>
+                    {data.isExpanded ? '−' : '+'}
+                </button>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
+
+    if (data.url) {
+        return <Link href={data.url} target="_blank" rel="noopener noreferrer">{content}</Link>
+    }
+
+    return content;
 };
 
 const nodeTypes = {
@@ -68,12 +86,12 @@ const nodeTypes = {
 
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
-const nodeWidth = 250;
-const nodeHeight = 120;
+const nodeWidth = 280;
+const nodeHeight = 150;
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
   const isHorizontal = direction === 'LR';
-  dagreGraph.setGraph({ rankdir: direction, nodesep: 60, ranksep: 80 });
+  dagreGraph.setGraph({ rankdir: direction, nodesep: 60, ranksep: 90 });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -100,72 +118,182 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => 
   return { nodes, edges };
 };
 
-const transformData = (data: MindMapData): { initialNodes: Node<CustomNodeData>[], initialEdges: Edge[] } => {
+const transformData = (data: MindMapData, onToggle: (id: string) => void): { initialNodes: Node<CustomNodeData>[], initialEdges: Edge[] } => {
     const initialNodes: Node<CustomNodeData>[] = [];
     const initialEdges: Edge[] = [];
-    const allNodeIds = new Set<string>();
+    let nodeIdCounter = 0;
 
-    function traverse(node: MindMapData, parentId?: string) {
-        if (!node || allNodeIds.has(node.id)) return;
-        allNodeIds.add(node.id);
+    const rootId = `node-${nodeIdCounter++}`;
+    initialNodes.push({
+        id: rootId,
+        type: 'careerNode',
+        position: { x: 0, y: 0 },
+        data: {
+            label: data.title,
+            description: data.description,
+            color: nodeColors.root,
+            hasChildren: !!data.stages && data.stages.length > 0,
+            onToggle,
+            isExpanded: true,
+            category: 'root',
+        },
+    });
 
+    data.stages?.forEach(stage => {
+        const stageId = `node-${nodeIdCounter++}`;
+        const stageColor = nodeColors[stage.type] || nodeColors.default;
+        
         initialNodes.push({
-            id: node.id,
+            id: stageId,
             type: 'careerNode',
             position: { x: 0, y: 0 },
             data: {
-              label: node.label,
-              description: node.description,
-              color: node.type ? nodeColors[node.type] || nodeColors.default : nodeColors.default,
-              hasChildren: !!node.children && node.children.length > 0,
+                label: stage.name,
+                description: stage.description,
+                color: stageColor,
+                hasChildren: !!stage.items && stage.items.length > 0,
+                onToggle,
+                isExpanded: false,
+                category: stage.type,
             },
         });
 
-        if (parentId) {
-            initialEdges.push({
-                id: `e-${parentId}-${node.id}`,
-                source: parentId,
-                target: node.id,
-                type: 'smoothstep',
-                animated: true,
-                markerEnd: { type: MarkerType.ArrowClosed },
+        initialEdges.push({
+            id: `e-${rootId}-${stageId}`,
+            source: rootId,
+            target: stageId,
+            type: 'smoothstep',
+            animated: true,
+            markerEnd: { type: MarkerType.ArrowClosed, color: stageColor },
+            style: { stroke: stageColor, strokeWidth: 2 },
+        });
+
+        stage.items?.forEach(item => {
+            const itemId = `node-${nodeIdCounter++}`;
+            initialNodes.push({
+                id: itemId,
+                type: 'careerNode',
+                position: { x: 0, y: 0 },
+                data: {
+                    label: item.name,
+                    description: item.description,
+                    color: stageColor,
+                    hasChildren: !!item.resources && item.resources.length > 0,
+                    onToggle,
+                    isExpanded: false,
+                    category: `${stage.type}-item`,
+                },
             });
-        }
+            initialEdges.push({
+                id: `e-${stageId}-${itemId}`,
+                source: stageId,
+                target: itemId,
+                type: 'smoothstep',
+                markerEnd: { type: MarkerType.ArrowClosed, color: stageColor },
+                style: { stroke: stageColor, strokeWidth: 1.5, opacity: 0.8 },
+            });
+            
+            item.resources?.forEach(resource => {
+                const resourceId = `node-${nodeIdCounter++}`;
+                const resourceColor = nodeColors[resource.category] || nodeColors.default;
+                initialNodes.push({
+                    id: resourceId,
+                    type: 'careerNode',
+                    position: { x: 0, y: 0 },
+                    data: {
+                        label: resource.name,
+                        description: resource.description,
+                        color: resourceColor,
+                        hasChildren: false,
+                        onToggle,
+                        isExpanded: false,
+                        category: resource.category,
+                        url: resource.url
+                    },
+                });
+                initialEdges.push({
+                    id: `e-${itemId}-${resourceId}`,
+                    source: itemId,
+                    target: resourceId,
+                    type: 'smoothstep',
+                    style: { stroke: resourceColor, strokeWidth: 1, strokeDasharray: '5 5' },
+                });
+            });
+        });
+    });
 
-        if (node.children) {
-            node.children.forEach(child => traverse(child, node.id));
-        }
-    }
-
-    traverse(data);
     return { initialNodes, initialEdges };
 };
 
 
 export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapData }) {
     const { toast } = useToast();
-
-    const { initialNodes, initialEdges } = useMemo(() => transformData(mindMapData), [mindMapData]);
-    
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
 
-    const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => new Set(initialNodes.map(n => n.id)));
+    const { initialNodes, initialEdges } = useMemo(() => {
+        const handleToggle = (nodeId: string) => {
+            setExpandedNodeIds(prev => {
+                const newSet = new Set(prev);
+                if (newSet.has(nodeId)) {
+                    newSet.delete(nodeId);
+                } else {
+                    newSet.add(nodeId);
+                }
+                return newSet;
+            });
+        };
+        return transformData(mindMapData, handleToggle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mindMapData]);
 
     useEffect(() => {
-        const visibleNodes = initialNodes.filter(node => {
-            const edge = initialEdges.find(e => e.target === node.id);
-            if (!edge) return true; // Root node
-            return expandedNodeIds.has(edge.source);
-        });
+        // Set initial expansion state (root node)
+        const rootNode = initialNodes.find(n => n.data.category === 'root');
+        if (rootNode) {
+            setExpandedNodeIds(new Set([rootNode.id]));
+        }
+    }, [initialNodes]);
 
+    useEffect(() => {
+        const getVisibleNodes = () => {
+            const visibleNodeIds = new Set<string>();
+            const root = initialNodes.find(n => n.data.category === 'root');
+            if (!root) return [];
+            
+            const queue: string[] = [root.id];
+            visibleNodeIds.add(root.id);
+
+            while(queue.length > 0) {
+                const currentId = queue.shift()!;
+                if (expandedNodeIds.has(currentId)) {
+                    const children = initialEdges.filter(e => e.source === currentId).map(e => e.target);
+                    children.forEach(childId => {
+                        visibleNodeIds.add(childId);
+                        queue.push(childId);
+                    });
+                }
+            }
+            return initialNodes.filter(n => visibleNodeIds.has(n.id));
+        };
+
+        const visibleNodes = getVisibleNodes();
         const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
 
         const visibleEdges = initialEdges.filter(edge =>
             visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)
         );
 
-        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(visibleNodes, visibleEdges);
+        const updatedNodes = visibleNodes.map(node => ({
+            ...node,
+            data: {
+                ...node.data,
+                isExpanded: expandedNodeIds.has(node.id),
+            }
+        }));
+
+        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(updatedNodes, visibleEdges);
         
         setNodes(layoutedNodes);
         setEdges(layoutedEdges);
@@ -173,31 +301,6 @@ export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapDat
     }, [expandedNodeIds, initialNodes, initialEdges, setNodes, setEdges]);
     
     
-    const onNodeClick = useCallback((_: any, node: Node) => {
-        setExpandedNodeIds(currentIds => {
-            const newIds = new Set(currentIds);
-            const children = initialEdges.filter(e => e.source === node.id).map(e => e.target);
-
-            const isExpanded = children.every(childId => newIds.has(childId));
-
-            if (isExpanded) {
-                const nodesToCollapse = (nodeId: string): string[] => {
-                    const directChildren = initialEdges.filter(e => e.source === nodeId).map(e => e.target);
-                    let allChildren: string[] = [...directChildren];
-                    directChildren.forEach(childId => {
-                        allChildren = [...allChildren, ...nodesToCollapse(childId)];
-                    });
-                    return allChildren;
-                }
-                nodesToCollapse(node.id).forEach(id => newIds.delete(id));
-            } else {
-                children.forEach(childId => newIds.add(childId));
-            }
-            return newIds;
-        });
-    }, [initialEdges]);
-
-
     const onConnect = useCallback((params: any) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
 
     const handleExport = useCallback(() => {
@@ -226,7 +329,8 @@ export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapDat
         if (expand) {
             setExpandedNodeIds(new Set(initialNodes.map(n => n.id)));
         } else {
-            setExpandedNodeIds(new Set([mindMapData.id]));
+            const rootNode = initialNodes.find(n => n.data.category === 'root');
+            setExpandedNodeIds(new Set(rootNode ? [rootNode.id] : []));
         }
     };
 
@@ -253,7 +357,6 @@ export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapDat
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
-                onNodeClick={onNodeClick}
                 nodeTypes={nodeTypes}
                 fitView
                 attributionPosition="bottom-left"
