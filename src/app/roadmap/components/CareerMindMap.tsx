@@ -41,8 +41,8 @@ type CustomNodeData = {
 
 const nodeColors: { [key: string]: string } = {
     root: '#673AB7', // primary
-    foundation: '#009688', // accent
-    skills: '#F59E0B', // Amber
+    foundation: '#10B981', // Green
+    skills: '#F59E0B', // Orange
     specialization: '#EC4899', // Pink
     traditional: '#3B82F6', // Blue
     ai_first: '#8B5CF6', // Purple
@@ -97,7 +97,7 @@ const nodeHeight = 150;
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
   const isHorizontal = direction === 'LR';
-  dagreGraph.setGraph({ rankdir: direction, nodesep: 60, ranksep: 90 });
+  dagreGraph.setGraph({ rankdir: direction, nodesep: 150, ranksep: 200, marginx: 100, marginy: 100, edgesep: 100 });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -168,8 +168,8 @@ const transformData = (data: MindMapData): { initialNodes: Node[], initialEdges:
             target: stageId,
             type: 'smoothstep',
             animated: true,
-            markerEnd: { type: MarkerType.ArrowClosed, color: stageColor },
-            style: { stroke: stageColor, strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: stageColor, width: 20, height: 20 },
+            style: { stroke: stageColor, strokeWidth: 3, opacity: 0.8 },
         });
 
         stage.items?.forEach(item => {
@@ -192,8 +192,8 @@ const transformData = (data: MindMapData): { initialNodes: Node[], initialEdges:
                 source: stageId,
                 target: itemId,
                 type: 'smoothstep',
-                markerEnd: { type: MarkerType.ArrowClosed, color: stageColor },
-                style: { stroke: stageColor, strokeWidth: 1.5, opacity: 0.8 },
+                markerEnd: { type: MarkerType.ArrowClosed, color: stageColor, width: 20, height: 20 },
+                style: { stroke: stageColor, strokeWidth: 2, opacity: 0.7 },
             });
             
             item.resources?.forEach(resource => {
@@ -218,7 +218,8 @@ const transformData = (data: MindMapData): { initialNodes: Node[], initialEdges:
                     source: itemId,
                     target: resourceId,
                     type: 'smoothstep',
-                    style: { stroke: resourceColor, strokeWidth: 1, strokeDasharray: '5 5' },
+                    markerEnd: { type: MarkerType.ArrowClosed, color: resourceColor, width: 20, height: 20 },
+                    style: { stroke: resourceColor, strokeWidth: 1.5, strokeDasharray: '5 5', opacity: 0.8 },
                 });
             });
         });
@@ -362,9 +363,15 @@ export default function CareerMindMap({ mindMapData }: { mindMapData: MindMapDat
                 onConnect={onConnect}
                 nodeTypes={nodeTypes}
                 fitView
+                fitViewOptions={{ padding: 0.2, minZoom: 0.3, maxZoom: 1.5 }}
                 attributionPosition="bottom-left"
                 minZoom={0.1}
                 maxZoom={4}
+                defaultEdgeOptions={{
+                    type: 'smoothstep',
+                    animated: true,
+                    style: { strokeWidth: 3 }
+                }}
             >
                 <Controls />
                 <MiniMap nodeColor={(n) => n.data.color} zoomable pannable />
