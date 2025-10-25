@@ -3,7 +3,7 @@
 /**
  * @fileOverview This file defines a Genkit flow for generating a career roadmap mind map based on a user's profile.
  *
- * The flow takes a user profile as input and outputs a Mermaid.js syntax mind map.
+ * The flow takes a user profile as input and outputs a structured JSON object for a mind map.
  *
  * @exports {function} generateCareerRoadmap - The main function to trigger the flow.
  * @exports {type} GenerateCareerRoadmapInput - The input type for the generateCareerRoadmap function.
@@ -24,8 +24,16 @@ const GenerateCareerRoadmapInputSchema = z.object({
 });
 export type GenerateCareerRoadmapInput = z.infer<typeof GenerateCareerRoadmapInputSchema>;
 
+const MindMapNodeSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  type: z.string().optional(),
+  children: z.array(z.lazy(() => MindMapNodeSchema)).optional(),
+});
+
 const GenerateCareerRoadmapOutputSchema = z.object({
-  mindMap: z.string().describe('A Mermaid.js syntax mind map representing career paths.'),
+  mindMap: MindMapNodeSchema.describe('A structured JSON object representing the career mind map.'),
 });
 export type GenerateCareerRoadmapOutput = z.infer<typeof GenerateCareerRoadmapOutputSchema>;
 
@@ -37,7 +45,7 @@ const generateCareerRoadmapPrompt = ai.definePrompt({
   name: 'generateCareerRoadmapPrompt',
   input: {schema: GenerateCareerRoadmapInputSchema},
   output: {schema: GenerateCareerRoadmapOutputSchema},
-  prompt: `You are an expert career counselor. Based on the user's profile, generate a Mermaid.js syntax mind map visualizing potential career paths.
+  prompt: `You are an expert career counselor. Based on the user's profile, generate a structured JSON object representing a mind map of potential career paths.
 
 User Profile:
 Age: {{{age}}}
@@ -48,18 +56,39 @@ Current Grade: {{{current_grade}}}
 Learning Style: {{{learning_style}}}
 Time Availability: {{{time_availability}}}
 
-Here's an example of the Mermaid.js mindmap syntax:
+Create a hierarchical JSON object. The root node should be the main career goal. It should have children for sub-domains, skills, and resources. Each node must have a unique 'id', a 'label', and an optional 'description' and 'type'. Use types like 'mainCareer', 'subDomain', 'skills', 'resources'.
 
-graph TB
-  A[Career] --> B(Sub-Domain 1)
-  A --> C(Sub-Domain 2)
-  B --> D{Required Skills}
-  B --> E[Learning Resources]
-  C --> F{Required Skills}
-  C --> G[Learning Resources]
+Example JSON Output:
+{
+  "mindMap": {
+    "id": "root",
+    "label": "AI/ML Engineer",
+    "description": "Build intelligent systems using machine learning.",
+    "type": "mainCareer",
+    "children": [
+      {
+        "id": "foundations",
+        "label": "Foundations",
+        "type": "subDomain",
+        "children": [
+          { "id": "python", "label": "Python", "description": "Core programming language." },
+          { "id": "math", "label": "Math & Statistics", "description": "Linear algebra, calculus, probability." }
+        ]
+      },
+      {
+        "id": "core-skills",
+        "label": "Core Skills",
+        "type": "subDomain",
+        "children": [
+          { "id": "deep-learning", "label": "Deep Learning" },
+          { "id": "nlp", "label": "NLP" }
+        ]
+      }
+    ]
+  }
+}
 
-
-Based on their profile, here is the career roadmap in Mermaid.js syntax:
+Based on their profile, generate the career roadmap as a JSON object.
 `,
 });
 

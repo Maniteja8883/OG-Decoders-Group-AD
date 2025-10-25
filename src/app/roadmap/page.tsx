@@ -1,6 +1,6 @@
 import { Header } from "@/app/components/Header";
 import { Suspense } from "react";
-import { generateCareerRoadmap } from "@/ai/flows/generate-career-roadmap";
+import { generateCareerRoadmap, type GenerateCareerRoadmapOutput } from "@/ai/flows/generate-career-roadmap";
 import { recommendResources, type RecommendResourcesOutput } from "@/ai/flows/modern-resource-recommender";
 import CareerMindMap from "./components/CareerMindMap";
 import ResourceRecommender from "./components/ResourceRecommender";
@@ -37,7 +37,7 @@ async function RoadmapContent({ profile }: { profile: Profile }) {
     return (
       <div className="container mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         <div className="lg:col-span-2 space-y-6">
-            <CareerMindMap mindMap={mindMapData.mindMap} />
+            <CareerMindMap mindMapData={mindMapData.mindMap} />
             <ResourceRecommender resources={resourcesData} />
         </div>
         <div className="lg:col-span-1">
@@ -51,8 +51,8 @@ function RoadmapSkeleton() {
     return (
         <div className="container mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
             <div className="lg:col-span-2 space-y-6">
+                <Skeleton className="h-[600px] w-full rounded-lg" />
                 <Skeleton className="h-[400px] w-full rounded-lg" />
-                <Skeleton className="h-[500px] w-full rounded-lg" />
             </div>
             <div className="lg:col-span-1">
                 <Skeleton className="h-[600px] w-full rounded-lg" />
