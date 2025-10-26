@@ -168,8 +168,7 @@ graph TB
 ## 📞 Contact & Links
 
 - **GitHub Repository**: https://github.com/Maniteja8883/OG-Decoders-Group-AD.git
-- **Demo Video**: [YouTube Link]
-- **Documentation**: [Wiki/Docs Link]
+- **Demo Video**: [https://youtu.be/iTSIsEYzkB8]
   
 ---
 
